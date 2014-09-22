@@ -5,8 +5,8 @@ use warnings;
 our $VERSION = '0.23';
 
 use Exporter 'import';
-our @EXPORT_OK = map { "pica_$_" } 
-                 qw(parser writer values value fields holdings items path);
+our @EXPORT_OK = (qw(parse_pica_string), map { "pica_$_" }
+                  qw(parser writer values value fields holdings items path));
 our %EXPORT_TAGS = (all => [@EXPORT_OK]); 
 
 our $ILN_PATH = PICA::Path->new('101@a');
@@ -166,6 +166,22 @@ sub _pica_module {
     }
 }
 
+sub parse_pica_string {
+    my $type   = shift;
+    my $string = shift;
+    my $parser = pica_parser($type,\$string);
+
+    if (wantarray) {
+        my @records;
+        while ($parser->next) {
+            push @records, $_;
+        }
+        return @records;
+    } else {
+        $parser->next;
+    }
+}
+
 1;
 __END__
 
@@ -186,21 +202,24 @@ PICA::Data - PICA record processing
     use PICA::Data ':all';
     $parser = pica_parser( xml => @options );
     $writer = pica_writer( plain => @options );
-   
-    use PICA::Parser::XML;
-    use PICA::Writer::Plain;
-    $parser = PICA::Parser::XML->new( @options );
-    $writer = PICA::Writer::Plain->new( @options );
-
+  
     while ( my $record = $parser->next ) {
         my $ppn      = pica_value($record, '003@0'); # == $record->{_id}
         my $holdings = pica_holdings($record);
         my $items    = pica_holdings($record);
         ...
     }
-  
+
     # parse single record from string
-    my $record = pica_parser('plain', \"...")->next;
+    my $record = pica_parser( 'plain', \$string )->next;
+    $record = parse_pica_string( plain => $string );
+
+    # object interface
+    use PICA::Parser::XML;
+    use PICA::Writer::Plain;
+    $parser = PICA::Parser::XML->new( @options );
+    $writer = PICA::Writer::Plain->new( @options );
+
 
 =head1 DESCRIPTION
 
@@ -317,6 +336,13 @@ where the C<_id> of each record contains the ILN (subfield C<101@a>).
 Returns a list (as array reference) of item records (level 1),
 where the C<_id> of each record contains the EPN (subfield C<203@/**0>).
  
+=head1 ADDITIONAL FUNCTIONS
+
+=head2 parse_pica_string( $type => $string )
+
+Utility function to parse a single PICA record from a string. Returns the first
+record in scalar context or all record in list context.
+
 =head1 CONTRIBUTORS
 
 Johann Rolschewski, C<< <rolschewski@gmail.com> >>
